@@ -5,7 +5,7 @@ TARGET_ARCH = riscv32
 CC       = riscv32-unknown-elf-g++
 
 # compiling flags here
-CFLAGS = -Wall -I. -O0 -static -march=rv32imac -mabi=ilp32 --specs=nosys.specs
+CFLAGS = -Wall -I. -O0 -static -march=rv32gc -mabi=ilp32 --specs=nosys.specs
 
 LINKER   = riscv32-unknown-elf-g++
 # linking flags here

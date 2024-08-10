@@ -21,6 +21,7 @@
 #include "tlm_utils/simple_target_socket.h"
 
 #include "Log.h"
+#include "ProjectAddress.h"
 
 /**
  * Memory mapped Trace peripheral address
@@ -67,6 +68,11 @@ public:
 	 * @brief TLM initiator socket Trace module
 	 */
 	tlm_utils::simple_initiator_socket<BusCtrl> timer_socket;
+
+	/**
+	 * @brief TLM initiator socket Project module
+	 */
+	tlm_utils::simple_initiator_socket<BusCtrl> project_socket;
 
 	/**
 	 * @brief constructor

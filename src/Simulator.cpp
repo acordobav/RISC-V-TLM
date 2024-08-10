@@ -18,6 +18,7 @@
 
 #include "CPU.h"
 #include "Memory.h"
+#include "InternalMemory.h"
 #include "BusCtrl.h"
 #include "Trace.h"
 #include "Timer.h"
@@ -36,6 +37,7 @@ bool debug_session = false;
 SC_MODULE(Simulator) {
 	CPU *cpu;
 	Memory *MainMemory;
+	InternalMemory *CustomMemory;
 	BusCtrl *Bus;
 	Trace *trace;
 	Timer *timer;
@@ -44,6 +46,7 @@ SC_MODULE(Simulator) {
 		uint32_t start_PC;
 
 		MainMemory = new Memory("Main_Memory", filename);
+		CustomMemory = new InternalMemory("Custom_Memory");
 		start_PC = MainMemory->getPCfromHEX();
 
 		cpu = new CPU("cpu", start_PC, debug_session);
@@ -55,6 +58,7 @@ SC_MODULE(Simulator) {
 		cpu->instr_bus.bind(Bus->cpu_instr_socket);
 		cpu->mem_intf->data_bus.bind(Bus->cpu_data_socket);
 
+		Bus->systemc_socket.bind(CustomMemory->socket);
 		Bus->memory_socket.bind(MainMemory->socket);
 		Bus->trace_socket.bind(trace->socket);
 		Bus->timer_socket.bind(timer->socket);

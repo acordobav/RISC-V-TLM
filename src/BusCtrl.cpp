@@ -12,7 +12,7 @@ SC_HAS_PROCESS(BusCtrl);
 BusCtrl::BusCtrl(sc_core::sc_module_name const name) :
 		sc_module(name), cpu_instr_socket("cpu_instr_socket"), cpu_data_socket(
 				"cpu_data_socket"), memory_socket("memory_socket"), trace_socket(
-				"trace_socket") {
+				"trace_socket"), project_socket("project_socket") {
 	cpu_instr_socket.register_b_transport(this, &BusCtrl::b_transport);
 	cpu_data_socket.register_b_transport(this, &BusCtrl::b_transport);
 	log = Log::getInstance();
@@ -27,6 +27,7 @@ void BusCtrl::b_transport(tlm::tlm_generic_payload &trans,
 
 	sc_dt::uint64 adr = trans.get_address() / 4;
 
+
 	switch (adr) {
 	case TIMER_MEMORY_ADDRESS_HI / 4:
 	case TIMER_MEMORY_ADDRESS_LO / 4:
@@ -38,7 +39,13 @@ void BusCtrl::b_transport(tlm::tlm_generic_payload &trans,
 		trace_socket->b_transport(trans, delay);
 		break;
 	[[likely]] default:
-		memory_socket->b_transport(trans, delay);
+		if (adr >= (PROJECT_ADDRESS / 4) &&
+				adr < (PROJECT_ADDRESS_END / 4)) {
+			// Custom memory space to access our SystemC project
+			project_socket->b_transport(trans, delay);
+		} else {
+			memory_socket->b_transport(trans, delay);
+		}
 		break;
 	}
 
