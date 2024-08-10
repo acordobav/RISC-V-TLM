@@ -1,11 +1,11 @@
 TARGET   = RISCV_TLM
 
-SYSTEMC ?=../systemc-2.3.2
+SYSTEMC ?=/usr/local/systemc-2.3.4
 TARGET_ARCH=linux64
 
 CC       = g++
 # compiling flags here
-CFLAGS   = -Wall -I. -O3 -std=c++11 -g -Wextra -Wunused-function 
+CFLAGS   = -Wall -I. -O3 -std=c++17 -g -Wextra -Wunused-function 
 
 
 
@@ -19,7 +19,7 @@ LIBS   = -lsystemc -lm $(EXTRA_LIBS)
 SRCDIR   = src
 OBJDIR   = obj
 BINDIR   = ./
-INCDIR = -I. -I./inc -I$(SYSTEMC)/include -Ibasic_protocol -I$(SYSTEMC)/include/tlm_core/tlm_2
+INCDIR = -I. -I./inc -I$(SYSTEMC)/include
 LIBDIR = -L. -L$(SYSTEMC)/lib-$(TARGET_ARCH)
 
 
@@ -35,7 +35,6 @@ $(BINDIR)/$(TARGET): $(OBJECTS)
 
 
 $(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
-#	@$(CC) $(CFLAGS) $(INCDIR) -c $< -o $@
 	@echo "Compiling "$<" ..."
 	@$(CC) $(CFLAGS) $(INCDIR) -c $< -o $@
 	@echo "Done!"

@@ -32,11 +32,12 @@ $(BINDIR)/$(TARGET): $(OBJECTS)
 #	$(LINKER) $(OBJECTS) $(LFLAGS) $(LIBS) $(LIBDIR) -o $@
 	#riscv32-unknown-elf-objcopy -d $< > dump
 	riscv32-unknown-elf-objcopy -Oihex $< $(TARGET).hex
+	riscv32-unknown-elf-objcopy -O binary $< $(TARGET).bin
 #	@echo "Linking complete!"
 
 $(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.c
 	@echo "Compiling "$<" ..."
-#	$(CC) $(CFLAGS) $(INCDIR) -c $< -o $@
+	$(CC) $(CFLAGS) $(INCDIR) -c $< -o $@
 	$(CC) $(CFLAGS) $(INCDIR) $< -o $@
 	@echo "Done!"
 
