@@ -58,7 +58,7 @@ SC_MODULE(Simulator) {
 		cpu->instr_bus.bind(Bus->cpu_instr_socket);
 		cpu->mem_intf->data_bus.bind(Bus->cpu_data_socket);
 
-		Bus->systemc_socket.bind(CustomMemory->socket);
+		Bus->project_socket.bind(CustomMemory->socket);
 		Bus->memory_socket.bind(MainMemory->socket);
 		Bus->trace_socket.bind(trace->socket);
 		Bus->timer_socket.bind(timer->socket);
