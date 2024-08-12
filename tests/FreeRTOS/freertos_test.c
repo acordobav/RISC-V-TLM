@@ -3,50 +3,291 @@
 #include "queue.h"
 #include "timers.h"
 
-#include<stdio.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
+//Banco de registros
+#include "../../inc/ProjectAddress.h"
+
+//Xterm
 #define TRACE (*(unsigned char *)0x40000000)
 
 extern void register_timer_isr();
 
-QueueHandle_t my_queue = NULL;
+QueueHandle_t queue_hour_to_day = NULL;
+QueueHandle_t queue_day_to_reset = NULL;
+QueueHandle_t queue_sensor_data = NULL;
 
-static void task_1(void *pParameter) {
+//Direcciones de memoria para acceder datos del Sensor
+#define DATASENSOR1 (*(int *)(PROJECT_ADDRESS+0x0)) //Sensor 1
+#define DATASENSOR2 (*(int *)(PROJECT_ADDRESS+0x4)) //Sensor 2
+#define DATASENSOR3 (*(int *)(PROJECT_ADDRESS+0x8)) //Sensor 3
+#define DATASENSOR4 (*(int *)(PROJECT_ADDRESS+0xC)) //Sensor 4
+#define DATASENSOR5 (*(int *)(PROJECT_ADDRESS+0x10)) //Sensor 5
+#define DATASENSOR6 (*(int *)(PROJECT_ADDRESS+0x14)) //Sensor 6
+#define DATASENSOR7 (*(int *)(PROJECT_ADDRESS+0x18)) //Sensor 7
+#define DATASENSOR8 (*(int *)(PROJECT_ADDRESS+0x1C)) //Sensor 8
+
+typedef struct {
+    int *values; //Assume n animals are going to be detected per hour
+    int size;
+} SensorData;
+
+static int count_hours = 0;
+static int days_saved = 0;
+
+static int internal_range = 0;
+static int internal_1m = 0;
+static int internal_2m = 0;
+static int internal_3m = 0;
+static int internal_range_out = 0;
+static int internal_total_animals = 0;
+
+static int range = 0;
+static int results_1m = 0;
+static int results_2m = 0;
+static int results_3m = 0;
+static int total_animals = 0;
+static int average_out = 0;
+
+static int range_day = 0;
+static int results_1m_day = 0;
+static int results_2m_day = 0;
+static int results_3m_day = 0;
+static int total_animals_day = 0;
+static int average_out_day = 0;
+
+static int iteration = 0;
+
+//------------Code Starts Here-------------------------
+void calculate_Statistics_hours(int *values, int size, bool save_data_hour){
+
+    //Get register value ------------------------------
+    // ADD CODE
+
+    iteration++;
+
+    //Calculate Statistics ---------------------------
+    if (save_data_hour){
+        for (int i=0; i<size; i++){
+            internal_total_animals += 1;
+            internal_range += values[i];
+            //printf("Current Value[%d] = %d\n", i, values[i]);
+        
+            if (values[i] >= 2 && values[i] <= 50){
+                internal_1m += 1;
+            }
+            else if (values[i] > 50 && values[i] <= 200){
+                internal_2m += 1;
+            }
+            else if (values[i] > 200 && values[i] <= 400){
+                internal_3m += 1;
+            }
+            else{
+                ;
+            }
+        }
+        internal_range_out = internal_range/internal_total_animals;
+        count_hours++;
+    }
+
+    //Output results ----------------------------------
+    range += internal_range;
+    results_1m += internal_1m;
+    results_2m += internal_2m;
+    results_3m += internal_3m;
+    total_animals += internal_total_animals;
+    average_out += internal_range_out;
+
+    /*
+    printf("NEW HOUR DATA.\n");
+    printf("Total of animals detected: %d.\n", total_animals);
+    printf("Total distance: %d.\n", range);
+    printf("Number of animals on 1st zone: %d.\n", results_1m);
+    printf("Number of animals on 2nd zone: %d.\n", results_2m);
+    printf("Number of animals on 3rd zone: %d.\n", results_3m);
+    printf("Average distance: %d.\n", average_out);
+    printf("NO MORE DATA.\n\n");
+    */
+}
+
+void calculate_Statistics_day(int hours_to_save_day){
+
+    // Fist, determine if the Statistics can be saved now
+    if (hours_to_save_day >= 10){
+        
+        days_saved++;
+        range_day = range;
+        results_1m_day = results_1m;
+        results_2m_day = results_2m;
+        results_3m_day = results_3m;
+        total_animals_day = total_animals;
+        average_out_day = average_out;
+
+        printf("NEW DAY DATA.\n");
+        printf("Corresponding day Data: %d.\n", days_saved);
+
+        printf("Number of iteration to reach this point: %d.\n", iteration);
+
+        printf("Number of hours: %d.\n", count_hours);
+        printf("Total of animals detected: %d.\n", total_animals_day);
+        printf("Total distance: %d.\n", range_day);
+        printf("Number of animals on 1st zone: %d.\n", results_1m_day);
+        printf("Number of animals on 2nd zone: %d.\n", results_2m_day);
+        printf("Number of animals on 3rd zone: %d.\n", results_3m_day);
+        printf("Average distance: %d.\n", average_out_day);
+        printf("NO MORE DATA.\n\n");
+
+        //Reset the hour counter
+        count_hours = 0;
+    }
+}
+  
+void reset_Statistics(int reset_data){
+    if (reset_data == 1){
+        internal_range = 0;
+        internal_1m = 0;
+        internal_2m = 0;
+        internal_3m = 0;
+        internal_total_animals = 0;
+        internal_range_out = 0;
+    }
     
-        int data = 5;
-	printf("Task 1 starts\n");
+    //Output results ----------------------------------
+    range = internal_range;
+    results_1m = internal_1m;
+    results_2m = internal_2m;
+    results_3m = internal_3m;
+    total_animals = internal_total_animals;
+    average_out = internal_range_out;
+}
 
-	while(1) {
-		printf("T1: Tick %ld\n",  xTaskGetTickCount() );
-                xQueueSend(my_queue, &data, portMAX_DELAY);
+static void task_read_sensor_data(void *pParameter) {
+    printf("Task Read Sensor Data starts\n");
+
+    SensorData sensorData;
+    int dataReadCounter = 0;
+
+	sensorData.size = 10;
+    sensorData.values = (int *)malloc(sensorData.size * sizeof(int));
+
+    while(1){
+        /*
+        printf("Received Sensor Data:\n");
+        for (int i = 0; i < sensorData.size; i++) {
+            printf("Current Value[%d] = %d\n", i, sensorData.values[i]);
+        }
+        */
+
+        //Reading possible data coming from sensors. Not sending until 10 measures
+        //are read
+        //printf("Trying to read data");
+        if (DATASENSOR1 != 0 && dataReadCounter<10){
+            sensorData.values[dataReadCounter] = DATASENSOR1;
+            dataReadCounter++;
+        }
+        if (DATASENSOR2 != 0 && dataReadCounter<10){
+            sensorData.values[dataReadCounter] = DATASENSOR2;
+            dataReadCounter++;
+        }
+        if (DATASENSOR3 != 0 && dataReadCounter<10){
+            sensorData.values[dataReadCounter] = DATASENSOR3;
+            dataReadCounter++;
+        }
+        if (DATASENSOR4 != 0 && dataReadCounter<10){
+            sensorData.values[dataReadCounter] = DATASENSOR4;
+            dataReadCounter++;
+        }
+        if (DATASENSOR5 != 0 && dataReadCounter<10){
+            sensorData.values[dataReadCounter] = DATASENSOR5;
+            dataReadCounter++;
+        }
+        if (DATASENSOR6 != 0 && dataReadCounter<10){
+            sensorData.values[dataReadCounter] = DATASENSOR6;
+            dataReadCounter++;
+        }
+        if (DATASENSOR7 != 0 && dataReadCounter<10){
+            sensorData.values[dataReadCounter] = DATASENSOR7;
+            dataReadCounter++;
+        }
+        if (DATASENSOR8 != 0 && dataReadCounter<10){
+            sensorData.values[dataReadCounter] = DATASENSOR8;
+            dataReadCounter++;
+        }
+
+        //We have read all required values. Lets send the data
+        if (dataReadCounter == 10){
+            xQueueSend(queue_sensor_data, &sensorData, portMAX_DELAY);
+            dataReadCounter = 0;
+        }
+        
+        vTaskDelay(200 / portTICK_PERIOD_MS);
+    }
+}
+
+static void task_calculate_statistics_hour(void *pParameter) {
+    printf("Task 1 starts\n");
+
+	SensorData sensorData;
+	sensorData.size = 10;
+	int count = 0;
+
+	while(1){
+        printf("Task 1 being executed\n");
+		if (xQueueReceive(queue_sensor_data, &sensorData, portMAX_DELAY)){
+
+            /*
+            printf("Received Sensor Data:\n");
+            for (int i = 0; i < sensorData.size; i++) {
+                printf("Value[%d] = %.d\n", i, sensorData.values[i]);
+            }
+            */
+
+			calculate_Statistics_hours(sensorData.values, sensorData.size, true);
+			count++;
+
+			if (count >= 10){
+				xQueueSend(queue_hour_to_day, &count, portMAX_DELAY);
+				count = 0;
+			}
+		}
+		
+		
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}
 }
 
-static void task_2(void *pParameter) {
-    
-        int data = 7;
-        
+static void task_calculate_statistics_day(void *pParameter) {
 	printf("Task 2 starts\n");
+    
+    int countHours;
+	int reset = 0;
+    while(1) {
+        printf("Task 2 being executed\n");
+        // Recibir datos de la cola
+        if (xQueueReceive(queue_hour_to_day, &countHours, portMAX_DELAY)) {
+            calculate_Statistics_day(countHours);
 
-	while(1) {
-		printf("T2: Tick %ld\n",  xTaskGetTickCount() );
-                xQueueSend(my_queue, &data, portMAX_DELAY);
-		vTaskDelay(500 / portTICK_PERIOD_MS);
-	}
+			reset = 1;
+            xQueueSend(queue_day_to_reset, &reset, portMAX_DELAY);
+			reset = 0;
+        }
+    }
 }
 
-static void task_3(void *pParameter) {
-        int data;
-        
- 	printf("Task 3 starts\n");
-
-	while(1) {
-                xQueueReceive(my_queue, &data, portMAX_DELAY);
-		printf("T3: Tick %ld. Recv: %ld\n",  xTaskGetTickCount(), data);
-		//vTaskDelay(1000 / portTICK_PERIOD_MS);
-	}   
+static void task_reset_statistics(void *pParameter) {
+	printf("Task 3 starts\n");
     
+    int reset = 0;
+    while(1) {
+        printf("Task 3 being executed\n");
+        // Recibir datos de la cola
+        if (xQueueReceive(queue_day_to_reset, &reset, portMAX_DELAY)) {
+            // Llama a la función para reiniciar estadísticas
+            reset_Statistics(reset);
+        }
+    }
 }
 
 int main( void )
@@ -54,13 +295,27 @@ int main( void )
 
 	printf("Starting FreeRTOS test\n");
 
-        my_queue = xQueueCreate(10, sizeof(int));
-        
-        /* Create tasks */
-        xTaskCreate(task_1, "Task1", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY+1, NULL);
-	xTaskCreate(task_2, "Task2", 10000, NULL, tskIDLE_PRIORITY+1, NULL);
-        xTaskCreate(task_3, "Task3", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY+1, NULL);
-        
+    // Just for testing. Memory address of the project. Data 'coming' from Sensors
+    DATASENSOR1 = 1;
+    DATASENSOR2 = 10;
+    DATASENSOR3 = 60;
+    DATASENSOR4 = 300;
+    DATASENSOR5 = 1;
+    DATASENSOR6 = 0;
+    DATASENSOR7 = 0;
+    DATASENSOR8 = 0;
+
+	/* Create queues */
+	queue_hour_to_day  = xQueueCreate(10, sizeof(int));
+	queue_day_to_reset = xQueueCreate(10, sizeof(int));
+	queue_sensor_data  = xQueueCreate(10, sizeof(SensorData));
+	
+	/* Create tasks */
+	xTaskCreate(task_read_sensor_data, "TaskRead", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY+1, NULL);
+	xTaskCreate(task_calculate_statistics_hour, "TaskHours", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY+1, NULL);
+	xTaskCreate(task_calculate_statistics_day, "TaskDay", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY+1, NULL);
+	xTaskCreate(task_reset_statistics, "TaskReset", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY+1, NULL);
+
 	/* Start the kernel.  From here on, only tasks and interrupts will run. */
 	vTaskStartScheduler();
 
