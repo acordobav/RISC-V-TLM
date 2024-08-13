@@ -80,7 +80,7 @@ double ultrasonic_sensor::detect(double input_signal)
         detected = false;
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_real_distribution<> pulse_width(1.16, 23.33);
+        std::uniform_real_distribution<> pulse_width(1.16, 15.33);
 
         double pulse_width_dist = pulse_width(gen);
 

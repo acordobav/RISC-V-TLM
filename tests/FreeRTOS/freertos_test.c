@@ -9,6 +9,7 @@
 
 //Banco de registros
 #include "../../inc/ProjectAddress.h"
+#include "../../src/Proyecto4/memory_map.h"
 
 //Xterm
 #define TRACE (*(unsigned char *)0x40000000)
@@ -23,14 +24,17 @@ QueueHandle_t queue_sensor_data = NULL;
 #define ENABLE (*(int *)(PROJECT_ADDRESS))
 
 //Direcciones de memoria para acceder datos del Sensor
-#define DATASENSOR1 (*(int *)(PROJECT_ADDRESS+0x0)) //Sensor 1
-#define DATASENSOR2 (*(int *)(PROJECT_ADDRESS+0x4)) //Sensor 2
-#define DATASENSOR3 (*(int *)(PROJECT_ADDRESS+0x8)) //Sensor 3
-#define DATASENSOR4 (*(int *)(PROJECT_ADDRESS+0xC)) //Sensor 4
-#define DATASENSOR5 (*(int *)(PROJECT_ADDRESS+0x10)) //Sensor 5
-#define DATASENSOR6 (*(int *)(PROJECT_ADDRESS+0x14)) //Sensor 6
-#define DATASENSOR7 (*(int *)(PROJECT_ADDRESS+0x18)) //Sensor 7
-#define DATASENSOR8 (*(int *)(PROJECT_ADDRESS+0x1C)) //Sensor 8
+#define DATASENSOR1 (*(int *)(REG_DISTANCE0)) //Sensor 1
+#define DATASENSOR2 (*(int *)(REG_DISTANCE1)) //Sensor 2
+#define DATASENSOR3 (*(int *)(REG_DISTANCE2)) //Sensor 3
+#define DATASENSOR4 (*(int *)(REG_DISTANCE3)) //Sensor 4
+#define DATASENSOR5 (*(int *)(REG_DISTANCE4)) //Sensor 5
+#define DATASENSOR6 (*(int *)(REG_DISTANCE5)) //Sensor 6
+#define DATASENSOR7 (*(int *)(REG_DISTANCE6)) //Sensor 7
+#define DATASENSOR8 (*(int *)(REG_DISTANCE7)) //Sensor 8
+
+#define ROWS (*(int *)(REG_IMAGE_ROWS)) //ROWS
+#define COLS (*(int *)(REG_IMAGE_COLS)) //COLS
 
 typedef struct {
     int *values; //Assume n animals are going to be detected per hour
@@ -74,22 +78,24 @@ void calculate_Statistics_hours(int *values, int size, bool save_data_hour){
     //Calculate Statistics ---------------------------
     if (save_data_hour){
         for (int i=0; i<size; i++){
-            internal_total_animals += 1;
-            internal_range += values[i];
-            //printf("Current Value[%d] = %d\n", i, values[i]);
-        
-            if (values[i] >= 2 && values[i] <= 50){
-                internal_1m += 1;
+            if (values[i] >= 2 && values[i] <= 400){
+                internal_total_animals += 1;
+                internal_range += values[i];
+            
+                if (values[i] >= 2 && values[i] <= 50){
+                    internal_1m += 1;
+                }
+                else if (values[i] > 50 && values[i] <= 200){
+                    internal_2m += 1;
+                }
+                else if (values[i] > 200 && values[i] <= 400){
+                    internal_3m += 1;
+                }
+                else{
+                    ;
+                }
             }
-            else if (values[i] > 50 && values[i] <= 200){
-                internal_2m += 1;
-            }
-            else if (values[i] > 200 && values[i] <= 400){
-                internal_3m += 1;
-            }
-            else{
-                ;
-            }
+
         }
         internal_range_out = internal_range/internal_total_animals;
         count_hours++;
@@ -101,7 +107,7 @@ void calculate_Statistics_hours(int *values, int size, bool save_data_hour){
     results_2m += internal_2m;
     results_3m += internal_3m;
     total_animals += internal_total_animals;
-    average_out += internal_range_out;
+    average_out += internal_range_out/count_hours;
 
     /*
     printf("NEW HOUR DATA.\n");
@@ -130,9 +136,6 @@ void calculate_Statistics_day(int hours_to_save_day){
 
         printf("NEW DAY DATA.\n");
         printf("Corresponding day Data: %d.\n", days_saved);
-
-        printf("Number of iteration to reach this point: %d.\n", iteration);
-
         printf("Number of hours: %d.\n", count_hours);
         printf("Total of animals detected: %d.\n", total_animals_day);
         printf("Total distance: %d.\n", range_day);
@@ -186,35 +189,35 @@ static void task_read_sensor_data(void *pParameter) {
         //Reading possible data coming from sensors. Not sending until 10 measures
         //are read
         //printf("Trying to read data");
-        if (DATASENSOR1 != 0 && dataReadCounter<10){
+        if (DATASENSOR1 > 0 && dataReadCounter<10){
             sensorData.values[dataReadCounter] = DATASENSOR1;
             dataReadCounter++;
         }
-        if (DATASENSOR2 != 0 && dataReadCounter<10){
+        if (DATASENSOR2 > 0 && dataReadCounter<10){
             sensorData.values[dataReadCounter] = DATASENSOR2;
             dataReadCounter++;
         }
-        if (DATASENSOR3 != 0 && dataReadCounter<10){
+        if (DATASENSOR3 > 0 && dataReadCounter<10){
             sensorData.values[dataReadCounter] = DATASENSOR3;
             dataReadCounter++;
         }
-        if (DATASENSOR4 != 0 && dataReadCounter<10){
+        if (DATASENSOR4 > 0 && dataReadCounter<10){
             sensorData.values[dataReadCounter] = DATASENSOR4;
             dataReadCounter++;
         }
-        if (DATASENSOR5 != 0 && dataReadCounter<10){
+        if (DATASENSOR5 > 0 && dataReadCounter<10){
             sensorData.values[dataReadCounter] = DATASENSOR5;
             dataReadCounter++;
         }
-        if (DATASENSOR6 != 0 && dataReadCounter<10){
+        if (DATASENSOR6 > 0 && dataReadCounter<10){
             sensorData.values[dataReadCounter] = DATASENSOR6;
             dataReadCounter++;
         }
-        if (DATASENSOR7 != 0 && dataReadCounter<10){
+        if (DATASENSOR7 > 0 && dataReadCounter<10){
             sensorData.values[dataReadCounter] = DATASENSOR7;
             dataReadCounter++;
         }
-        if (DATASENSOR8 != 0 && dataReadCounter<10){
+        if (DATASENSOR8 > 0 && dataReadCounter<10){
             sensorData.values[dataReadCounter] = DATASENSOR8;
             dataReadCounter++;
         }
@@ -298,17 +301,23 @@ int main( void )
 
 	printf("Starting FreeRTOS test\n");
 	
-	ENABLE = 1;
+    //Set init parameters
+	ROWS = 323;
+    COLS = 434;
 
     // Just for testing. Memory address of the project. Data 'coming' from Sensors
-    DATASENSOR1 = 1;
-    DATASENSOR2 = 10;
-    DATASENSOR3 = 60;
-    DATASENSOR4 = 300;
-    DATASENSOR5 = 1;
+    // This variables can be changed to see specific results during first iteration of the program
+    DATASENSOR1 = 0;
+    DATASENSOR2 = 0;
+    DATASENSOR3 = 0;
+    DATASENSOR4 = 0;
+    DATASENSOR5 = 0;
     DATASENSOR6 = 0;
     DATASENSOR7 = 0;
     DATASENSOR8 = 0;
+
+    //Init system
+    ENABLE = 1;
 
 	/* Create queues */
 	queue_hour_to_day  = xQueueCreate(10, sizeof(int));
