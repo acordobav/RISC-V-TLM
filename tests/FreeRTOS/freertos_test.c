@@ -19,6 +19,9 @@ QueueHandle_t queue_hour_to_day = NULL;
 QueueHandle_t queue_day_to_reset = NULL;
 QueueHandle_t queue_sensor_data = NULL;
 
+
+#define ENABLE (*(int *)(PROJECT_ADDRESS))
+
 //Direcciones de memoria para acceder datos del Sensor
 #define DATASENSOR1 (*(int *)(PROJECT_ADDRESS+0x0)) //Sensor 1
 #define DATASENSOR2 (*(int *)(PROJECT_ADDRESS+0x4)) //Sensor 2
@@ -294,6 +297,8 @@ int main( void )
 {
 
 	printf("Starting FreeRTOS test\n");
+	
+	ENABLE = 1;
 
     // Just for testing. Memory address of the project. Data 'coming' from Sensors
     DATASENSOR1 = 1;

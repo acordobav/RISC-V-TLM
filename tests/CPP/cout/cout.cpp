@@ -3,7 +3,8 @@
 using namespace std;
 
 
-#define SYSTEMC (*(int *)(PROJECT_ADDRESS))
+#define ENABLE (*(int *)(PROJECT_ADDRESS))
+#define REG (*(int *)(PROJECT_ADDRESS + 0x4))
 
 int main(void) {
 
@@ -15,10 +16,20 @@ int main(void) {
 
   // Asi es como se escribe en una direccion especifica
   // Ojo que arriba se declara como el puntero de un puntero
-  SYSTEMC = 10; 
 
   for ( const auto &x : aux ) std::cout << x << ' ';
     std::cout << std::endl;
+
+  ENABLE = 1;
+  int i = 0;
+
+  while (true)
+  {
+    REG = i; 
+    cout << "value: " << REG << endl;
+    i++;
+  }
+  
 
   cout << "Test End" << endl;
   asm volatile ("ecall");

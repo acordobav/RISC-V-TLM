@@ -1,6 +1,7 @@
 TARGET   = RISCV_TLM
 
 SYSTEMC ?=/usr/local/systemc-2.3.4
+SYSTEMC_AMS ?=/usr/local/systemc-ams-2.3.4
 TARGET_ARCH=linux64
 
 CC       = g++
@@ -12,15 +13,15 @@ CFLAGS   = -Wall -I. -O3 -std=c++17 -g -Wextra -Wunused-function
 LINKER   = g++
 # linking flags here
 LFLAGS   = -Wall -I. -lm -g
-LIBS   = -lsystemc -lm $(EXTRA_LIBS)
+LIBS   = -lsystemc -lsystemc-ams -lm -g $(EXTRA_LIBS)
 
 
 # change these to proper directories where each file should be
 SRCDIR   = src
 OBJDIR   = obj
 BINDIR   = ./
-INCDIR = -I. -I./inc -I$(SYSTEMC)/include
-LIBDIR = -L. -L$(SYSTEMC)/lib-$(TARGET_ARCH)
+INCDIR = -I. -I./inc -I$(SYSTEMC)/include -I$(SYSTEMC_AMS)/include
+LIBDIR = -L. -L$(SYSTEMC)/lib-$(TARGET_ARCH) -L$(SYSTEMC_AMS)/lib-$(TARGET_ARCH)
 
 
 SOURCES  := $(wildcard $(SRCDIR)/*.cpp)
